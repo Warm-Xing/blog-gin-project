@@ -32,7 +32,9 @@ func SetupRouter() *gin.Engine {
 			posts.GET("/:id", controller.NewPostController().GetPost)
 
 			// 评论相关路由
-			posts.GET("/:post_id/comments", controller.NewCommentController().GetCommentsByPostID)
+			//posts.GET("/:post_id/comments", controller.NewCommentController().GetCommentsByPostID)
+			// 修改后
+			posts.GET("/:id/comments", controller.NewCommentController().GetCommentsByPostID)
 		}
 	}
 
@@ -54,7 +56,9 @@ func SetupRouter() *gin.Engine {
 			posts.DELETE("/:id", controller.NewPostController().DeletePost)
 
 			// 评论相关路由
-			posts.POST("/:post_id/comments", controller.NewCommentController().CreateComment)
+			//posts.POST("/:post_id/comments", controller.NewCommentController().CreateComment)
+			// 修改后
+			posts.POST("/:id/comments", controller.NewCommentController().CreateComment)
 			posts.DELETE("/comments/:id", controller.NewCommentController().DeleteComment)
 		}
 	}

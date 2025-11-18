@@ -1,0 +1,24 @@
+我的博客
+首页
+文章列表
+登录
+注册
+欢迎来到我的个人博客
+分享技术、生活与思考
+
+查看文章
+最新文章
+{{if .Posts}}
+{{range .Posts}}
+{{.Title}}
+作者: {{.User.Username}} 发布时间: {{.CreatedAt.Format "2006-01-02"}}
+{{.Content | truncate 150}}
+
+阅读全文
+{{end}}
+{{else}}
+暂无文章，快去发布你的第一篇博客吧！
+
+{{end}}
+© {{.Year}} 我的个人博客 - 基于Gin和GORM开发
+

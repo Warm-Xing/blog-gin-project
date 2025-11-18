@@ -36,7 +36,8 @@ func (c *CommentController) CreateComment(ctx *gin.Context) {
 	}
 
 	// 获取文章ID
-	postIDStr := ctx.Param("post_id")
+	//postIDStr := ctx.Param("post_id")
+	postIDStr := ctx.Param("id")
 	postID, err := strconv.ParseUint(postIDStr, 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})
@@ -71,7 +72,7 @@ func (c *CommentController) CreateComment(ctx *gin.Context) {
 // GetCommentsByPostID 根据文章ID获取评论
 func (c *CommentController) GetCommentsByPostID(ctx *gin.Context) {
 	// 获取文章ID
-	postIDStr := ctx.Param("post_id")
+	postIDStr := ctx.Param("id")
 	postID, err := strconv.ParseUint(postIDStr, 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})

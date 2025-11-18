@@ -1,196 +1,129 @@
 package controller
 
 import (
-	"blog-gin-project/service"
-	"blog-gin-project/util"
+	"blog-gin-project/database"
+	"blog-gin-project/models"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
-// PostController 文章控制器
-type PostController struct {
-	postService *service.PostService
-}
-
-// NewPostController 创建新的文章控制器实例
-func NewPostController() *PostController {
-	return &PostController{
-		postService: service.NewPostService(),
-	}
-}
-
-// CreatePostRequest 创建文章请求结构体
-type CreatePostRequest struct {
-	Title   string `json:"title" binding:"required,min=3,max=200"`
-	Content string `json:"content" binding:"required,min=10"`
-}
-
-// UpdatePostRequest 更新文章请求结构体
-type UpdatePostRequest struct {
-	Title   string `json:"title" binding:"required,min=3,max=200"`
-	Content string `json:"content" binding:"required,min=10"`
-}
-
 // CreatePost 创建文章
-func (c *PostController) CreatePost(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+func CreatePost(c *gin.Context) {
+	var input struct {
+		Title   string `json:"title" form:"title" binding:"required"`
+		Content string `json:"content" form:"content" binding:"required"`
+	}
+
+	if err := c.ShouldBind(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 解析请求
-	var req CreatePostRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误: " + err.Error()})
+	userID, _ := c.Get("userID")
+
+	post := models.Post{
+		Title:   input.Title,
+		Content: input.Content,
+		UserID:  userID.(uint),
+	}
+
+	if err := database.DB.Create(&post).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法创建文章"})
 		return
 	}
 
-	// 创建文章
-	post, err := c.postService.CreatePost(userID.(uint), req.Title, req.Content)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "创建文章失败: " + err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "文章创建成功",
-		"post":    post,
-	})
-}
-
-// GetPost 获取文章详情
-func (c *PostController) GetPost(ctx *gin.Context) {
-	// 获取文章ID
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})
-		return
-	}
-
-	// 获取文章
-	post, err := c.postService.GetPostByID(uint(id))
-	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"post": post})
-}
-
-// GetAllPosts 获取所有文章
-func (c *PostController) GetAllPosts(ctx *gin.Context) {
-	// 获取分页参数
-	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
-
-	// 验证分页参数
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
-
-	// 获取文章列表
-	posts, total, err := c.postService.GetAllPosts(page, pageSize)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "获取文章列表失败: " + err.Error()})
-		return
-	}
-
-	// 计算总页数
-	totalPages := (int(total) + pageSize - 1) / pageSize
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"posts": posts,
-		"pagination": map[string]interface{}{
-			"total":       total,
-			"page":        page,
-			"page_size":   pageSize,
-			"total_pages": totalPages,
-		},
-	})
+	c.Redirect(http.StatusFound, "/posts/"+strconv.Itoa(int(post.ID)))
 }
 
 // UpdatePost 更新文章
-func (c *PostController) UpdatePost(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+func UpdatePost(c *gin.Context) {
+	id := c.Param("id")
+	var post models.Post
+
+	if err := database.DB.First(&post, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
 		return
 	}
 
-	// 获取文章ID
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})
+	// 检查权限
+	userID, _ := c.Get("userID")
+	if post.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "没有权限编辑此文章"})
 		return
 	}
 
-	// 解析请求
-	var req UpdatePostRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "请求参数错误: " + err.Error()})
+	var input struct {
+		Title   string `json:"title" form:"title" binding:"required"`
+		Content string `json:"content" form:"content" binding:"required"`
+	}
+
+	if err := c.ShouldBind(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 更新文章
-	post, err := c.postService.UpdatePost(uint(id), userID.(uint), req.Title, req.Content)
-	if err != nil {
-		switch err {
-		case util.ErrPostNotFound:
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
-		case util.ErrUnauthorized:
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "没有权限更新此文章"})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "更新文章失败: " + err.Error()})
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "文章更新成功",
-		"post":    post,
+	database.DB.Model(&post).Updates(models.Post{
+		Title:   input.Title,
+		Content: input.Content,
 	})
+
+	c.Redirect(http.StatusFound, "/posts/"+id)
 }
 
 // DeletePost 删除文章
-func (c *PostController) DeletePost(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+func DeletePost(c *gin.Context) {
+	id := c.Param("id")
+	var post models.Post
+
+	if err := database.DB.First(&post, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
 		return
 	}
 
-	// 获取文章ID
-	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})
+	// 检查权限
+	userID, _ := c.Get("userID")
+	if post.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "没有权限删除此文章"})
 		return
 	}
 
-	// 删除文章
-	err = c.postService.DeletePost(uint(id), userID.(uint))
-	if err != nil {
-		switch err {
-		case util.ErrPostNotFound:
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
-		case util.ErrUnauthorized:
-			ctx.JSON(http.StatusForbidden, gin.H{"error": "没有权限删除此文章"})
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "删除文章失败: " + err.Error()})
-		}
+	database.DB.Delete(&post)
+	c.Redirect(http.StatusFound, "/posts")
+}
+
+// CreateComment 创建评论
+func CreateComment(c *gin.Context) {
+	postID := c.Param("id")
+	var post models.Post
+
+	if err := database.DB.First(&post, postID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "文章不存在"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "文章删除成功"})
+	var input struct {
+		Content string `json:"content" form:"content" binding:"required"`
+	}
+
+	if err := c.ShouldBind(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, _ := c.Get("userID")
+
+	comment := models.Comment{
+		Content: input.Content,
+		UserID:  userID.(uint),
+		PostID:  post.ID,
+	}
+
+	if err := database.DB.Create(&comment).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法创建评论"})
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/posts/"+postID)
 }
