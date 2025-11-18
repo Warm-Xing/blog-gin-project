@@ -53,10 +53,10 @@ func SetupWebRoutes(r *gin.Engine) {
 	{
 		auth.GET("/dashboard", controller.ShowDashboard)
 		auth.GET("/posts/create", controller.ShowCreatePostForm)
-		auth.POST("/posts", controller.CreatePost)
-		auth.GET("/posts/:id/edit", controller.ShowEditPostForm)
-		auth.POST("/posts/:id/update", controller.UpdatePost)
-		auth.POST("/posts/:id/delete", controller.DeletePost)
-		auth.POST("/posts/:id/comments", controller.CreateComment)
+		//auth.POST("/posts", postController.CreatePost)
+		//auth.GET("/posts/:id/edit", controller.ShowEditPostForm)
+		//auth.POST("/posts/:id/update", controller.UpdatePost)
+		//auth.POST("/posts/:id/delete", controller.DeletePost)
+		//auth.POST("/posts/:id/comments", controller.CreateComment)
 	}
 }
